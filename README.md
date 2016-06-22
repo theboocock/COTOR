@@ -1,3 +1,6 @@
+# CAINTOR, 
+Colocaliation, Annotation, Integrator. Extends PAINTOR to provide the functionality of pw-gwas in the PAINTOR framework.
+
 # PAINTOR_V3.0
 WARNING BETA VERSION! Detailed repository with FAQ's, instruction manual, and annotation database coming soon!
 
