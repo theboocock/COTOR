@@ -14,6 +14,7 @@ void BuildCausalVector(VectorXd& vec2Build , VectorXd& index){
         if(index[i] >0){
             vec2Build[index[i]-1] = 1;
         }
+
     }
 }
 
@@ -78,7 +79,7 @@ int Get_Rand_Poiss( mt19937& generator, double poisson_rate){
 }
 
 int Next_Move(int set_size, double move_probability, mt19937& generator){
-// #return 0 if swap,  1 if add, 2 if delete
+    // #return 0 if swap,  1 if add, 2 if delete
     double rand_uniform= Get_Rand_Unif(generator);
     int next_move;
     int power = set_size-1;
@@ -94,16 +95,41 @@ int Next_Move(int set_size, double move_probability, mt19937& generator){
         if(rand_uniform < pow(move_probability,power)){
             next_move = 1;
         }
-   //     else if(rand_uniform < pow((1-move_probability),power)){
-     //       next_move = 2;
-      //  }
+        //     else if(rand_uniform < pow((1-move_probability),power)){
+        //       next_move = 2;
+        //  }
         else{
             next_move = 2;
-           // next_move = 2;
+            // next_move = 2;
         }
     }
     return(next_move);
 }
+int binomialCoeff(int n, int k)
+{
+    int C[k+1];
+    memset(C, 0, sizeof(C));
+ 
+    C[0] = 1;  // nC0 is 1
+ 
+    for (int i = 1; i <= n; i++)
+    {
+        // Compute next row of pascal triangle using
+        // the previous row
+        for (int j = min(i, k); j > 0; j--)
+            C[j] = C[j] + C[j-1];
+    }
+    return C[k];
+}
+
+double number_causals(int num_snps, int num_causals){
+	int number_of_causals = 0;
+	for(int i =1; i <= num_causals; i++){
+		number_of_causals += binomialCoeff(num_snps, i);
+	}
+	return number_of_causals;
+} 
+
 
 int Next_Deletion(VectorXd & zscore_squared, vector<int>& current_set, mt19937& generator){
     //drop a snp from the causal set proportional to 1/zscore^2
@@ -138,13 +164,13 @@ int Next_Addition(VectorXd & zscore_squared, MatrixXd& LDsquared_complement, vec
     int add_to_current_set =  Sample_Int(generator, probs);
     return add_to_current_set;
 }
-
-double Calculate_LogBayesFactor(VectorXd& zscore, MatrixXd& ld_matrix, vector<int>& causal_config, double prior_variance){
+double Calculate_LogBayesFactor2(VectorXd& zscore, MatrixXd& ld_matrix, vector<int>& causal_config, double prior_variance){
     unsigned int set_size = causal_config.size();
     MatrixXd ld_c(set_size, set_size);
     VectorXd zscores_c(set_size);
     for(unsigned int i =0; i < set_size; i++){
         zscores_c(i)=zscore(causal_config[i]);
+        //cout << "Z s  :" << zscores_c << endl;
         for(unsigned int j = 0; j < set_size; j++){
             ld_c(i,j)= ld_matrix(causal_config[i], causal_config[j]);
         }
@@ -152,18 +178,47 @@ double Calculate_LogBayesFactor(VectorXd& zscore, MatrixXd& ld_matrix, vector<in
     MatrixXd offset = ld_c+prior_variance*(ld_c*ld_c);
     double bf_num = MVN_Density_ZeroMean(zscores_c, offset);
     double bf_denom = MVN_Density_ZeroMean(zscores_c, ld_c);
-/*
-    if(isnan(bf_num-bf_denom)){
-      //  cout << "The offset matrix is:" << endl;
-      //  cout <<offset << endl;
-        cout << "num, denom" << endl;
-        cout << bf_num << " " << bf_denom << endl;
-        cout << "numerator" << endl;
-        MVN_Density_ZeroMean_print(zscores_c, offset);
-        cout << "denom" << endl;
-        MVN_Density_ZeroMean_print(zscores_c, ld_c);
+    /*
+       if(isnan(bf_num-bf_denom)){
+    //  cout << "The offset matrix is:" << endl;
+    //  cout <<offset << endl;
+    cout << "num, denom" << endl;
+    cout << bf_num << " " << bf_denom << endl;
+    cout << "numerator" << endl;
+    MVN_Density_ZeroMean_print(zscores_c, offset);
+    cout << "denom" << endl;
+    MVN_Density_ZeroMean_print(zscores_c, ld_c);
     }
-*/
+    */  
+    return bf_denom-bf_num;
+}
+
+double Calculate_LogBayesFactor(VectorXd& zscore, MatrixXd& ld_matrix, vector<int>& causal_config, double prior_variance){
+    unsigned int set_size = causal_config.size();
+    MatrixXd ld_c(set_size, set_size);
+    VectorXd zscores_c(set_size);
+    for(unsigned int i =0; i < set_size; i++){
+        zscores_c(i)=zscore(causal_config[i]);
+        //cout << "Z s  :" << zscores_c << endl;
+        for(unsigned int j = 0; j < set_size; j++){
+            ld_c(i,j)= ld_matrix(causal_config[i], causal_config[j]);
+        }
+    }
+    MatrixXd offset = ld_c+prior_variance*(ld_c*ld_c);
+    double bf_num = MVN_Density_ZeroMean(zscores_c, offset);
+    double bf_denom = MVN_Density_ZeroMean(zscores_c, ld_c);
+    /*
+       if(isnan(bf_num-bf_denom)){
+    //  cout << "The offset matrix is:" << endl;
+    //  cout <<offset << endl;
+    cout << "num, denom" << endl;
+    cout << bf_num << " " << bf_denom << endl;
+    cout << "numerator" << endl;
+    MVN_Density_ZeroMean_print(zscores_c, offset);
+    cout << "denom" << endl;
+    MVN_Density_ZeroMean_print(zscores_c, ld_c);
+    }
+    */  
     return bf_num-bf_denom;
 }
 
@@ -245,7 +300,6 @@ void Locus_Sampler(VectorXd& marginal, VectorXd& zscores, VectorXd& gammas, Matr
         marginal[i] = log_bayes_factor+log_prior;
         log_runsum = LogSum(log_runsum, log_bayes_factor+log_prior);
     }
-
     causal_set[0] = 0;
     causal_set.push_back(num_snps/2);
     MatrixXd ld_sq_complement(num_snps,num_snps);
@@ -368,7 +422,7 @@ void Locus_Importance_Sampler(VectorXd& marginal, vector<VectorXd>& zscores, Vec
             log_result = log_bayes_factor + log_import_weight;
             log_importance_normalizer = LogSum(log_importance_normalizer, log_result);
 
-            }
+        }
         else{
             log_bayes_factor =-1e150;
             log_import_weight = Calc_Importance_logWeight(per_snp_priors, proposal, causal_set);
@@ -468,6 +522,235 @@ void Marginalize_Sets(unordered_map<string,double>& causal_posteriors, VectorXd&
     cout << "Sampled " << counter << " unique multi-causal sets in total" << endl << endl;
 }
 
+void Enumerate_Posterior2(VectorXd& Marginal, vector<VectorXd>& zscores, VectorXd& beta, MatrixXd& annotations,  vector<MatrixXd>& ld_matrix, int NC, double& fullLikeli, double prior_variance, VectorXd& Marginal1, VectorXd& Marginal2, VectorXd& Marginal3, VectorXd &gamma2){
+    int numsnps = zscores[0].size();
+    int num_pops = zscores.size();
+    double runsum = -1e150;
+    for(int i =0 ; i < Marginal.size(); i++){
+        Marginal(i) = -1e150;
+        Marginal1(i) = -1e150;
+        Marginal2(i) = -1e150;
+        Marginal3(i) = -1e150;
+    }
+    double runsumone = -1e150;
+    double runsumtwo = -1e150;
+    double runsumthree = -1e150;
+    double c_prob = 0;
+    double sum = 0;
+
+    VectorXd mark_marginal(NC);
+
+    VectorXd causConfig(numsnps);
+    causConfig.setZero();
+    VectorXd causal_index(NC);
+    causal_index.setZero();
+    VectorXd per_snp_prior(numsnps);
+    //cout << "BETA = ";
+    for(int i=0; i < beta.size(); i++){
+        cout << beta[i] << endl;
+    }
+    VectorXd m1(numsnps);
+    VectorXd m2(numsnps);
+    VectorXd m3(numsnps); 
+    double log_bayes_factor = 0;
+    double log_bayes_factor_pop;
+    double log_bayse_factor_pop_one;
+    double log_bayse_factor_pop_two;
+    double sumone;
+    double sumtwo;
+    double sumthree;
+    double directional_bayes_one;
+    //runsum = sum;
+    int counter = 1;
+    //cout << "Enumaret again" << endl;
+    VectorXd zscores1 = zscores[0];
+    VectorXd zscores2 = zscores[1];
+    VectorXd all_snps(numsnps);
+    VectorXd running_sums(numsnps);
+    cout << "What gammas are we running with " << endl;
+    cout << gamma2 << endl;
+    double c_prob1, c_prob2, c_prob3;
+    VectorXd test(1);
+    test[0] = log(1/(gamma2[0])- 1); 
+    Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+    c_prob1 = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+    test[0] = log(1/(gamma2[1])- 1); 
+    Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+    c_prob2= Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+    //cout << "log_bayse_factor_pop_one " << endl;
+    test[0] = log(1/(gamma2[2])- 1); 
+    Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+    c_prob3 = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+    sumtwo = log_bayse_factor_pop_two;
+	int number_of_causals_total = number_causals(numsnps, NC);
+	cout << "Number of causals total " << number_of_causals_total << endl;
+    MatrixXd causal_sets(numsnps, number_of_causals_total); 
+	cout << causal_sets.rows()  << " " << causal_sets.cols() << endl;
+    VectorXd sumone_vec(number_of_causals_total);
+    VectorXd sumtwo_vec(number_of_causals_total);
+    while(NextCombo(causal_index, NC, numsnps+1) == 1){
+        VectorXd test(1);
+        test[0] = gamma2[0];
+        Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+        c_prob1 = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        test[0] = log(1/(gamma2[1])- 1); 
+        Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+        c_prob2= Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        //cout << "log_bayse_factor_pop_one " << endl;
+        test[0] = log(1/(gamma2[2])- 1); 
+        Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+        c_prob3 = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        //out << " SNP number " << causal_index << endl;
+        vector<int> causal_index_as_vector;
+        BuildCausalVector(causConfig, causal_index,causal_index_as_vector);
+        //cout << "Beta= " << beta << endl;
+        test[0] = log(1/(gamma2[0])- 1); 
+        //cout << "TEST " << test[0] << endl;
+        Compute_SNP_Priors(annotations, test, per_snp_prior);
+        c_prob = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        //cout << c_prob << endl;
+        //cout << c_prob << endl;
+        log_bayes_factor = 0;
+        log_bayse_factor_pop_one = 0;
+        log_bayse_factor_pop_two = 0;
+        // Let's try and do som region calculations. 
+        for (int i = 0;  i<num_pops ; i++) {
+            //cout << causal_index_as_vector[0] << endl;
+            log_bayes_factor_pop=Calculate_LogBayesFactor(zscores[i], ld_matrix[i], causal_index_as_vector, prior_variance);
+            //cout << "Log bayes " << log_bayes_factor_pop << " " << log_bayes_factor_not_causal << endl;
+            if(i==0){
+                log_bayse_factor_pop_one = log_bayes_factor_pop;
+            }else{
+                log_bayse_factor_pop_two = log_bayes_factor_pop;
+            }
+            //  cout << "Colocalisation " << log_bayes_factor << endl;
+            if(std::isnan(log_bayes_factor_pop)){
+                cout << "Nan" << endl;
+                log_bayes_factor_pop = -1e150;
+            }
+            log_bayes_factor += log_bayes_factor_pop;
+        }
+        //cout << "Causal index " << causal_index.size() << " " << causal_index[0] << " " << causal_index[1] << " " << causal_index[2] << endl;
+        VectorXd zscores1 = zscores[0];
+        VectorXd zscores2 = zscores[1];
+        int causal_idx = causal_index[causal_index.size()-1];
+        double tmp_c_prob3 =0.0;
+        //cout << "Sum " << endl;
+        //cout << sum << endl; 
+        //cout << "Gamma 2 " << gamma2[1];
+        test[0] = log(1/(gamma2[1])- 1);
+        Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+        //cout << per_snp_prior << endl;
+        c_prob = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        sumone = log_bayse_factor_pop_one;//
+         //   + c_prob; 
+        //cout << "log_bayse_factor_pop_one " << endl;
+        test[0] = log(1/(gamma2[2])- 1); 
+        Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+        c_prob = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        sumtwo = log_bayse_factor_pop_two;
+        //cout << "Causal IDX " << causal_idx << endl; 
+        //cout << "Gamma 2 " << gamma2[1] << endl;
+        //cout << "log bayes " << endl;
+        //cout << (c_prob + c_prob) << endl;
+        sum = log_bayes_factor; 
+        sumone_vec[counter-1] = sumone; 
+        sumtwo_vec[counter-1] = sumtwo; 
+        for(int i=0; i < causConfig.size(); i++){
+            causal_sets(i, counter -1 ) = causConfig[i]; 
+        }
+//        for (int i=0; i < causal_index.size(); i++){
+//            causal_idx = causal_index[i];
+//            if(causal_index[i] > 0){
+//                if((zscores1(causal_idx-1) >  0 && zscores2(causal_idx-1)>0)|| (zscores1(causal_idx-1)< 0 && zscores2(causal_idx-1)< 0)){
+//                    sumone_vec[i]= c_prob+log_bayes_factor;
+//                    //cout << c_prob << " " << c_prob+log_bayes_factor << endl;
+//                    sumtwo_vec[i] = 0;
+//                    mark_marginal[i] = 1;
+//                }else{
+//                    sumone_vec[i]= 0;
+//                    sumtwo_vec[i] = c_prob+log_bayes_factor;
+//                    mark_marginal[i] = 0;
+//                }
+//            }
+//        }
+        //cout << "Zscores" << endl;
+        //cout << zscores2(causal_idx-1) << endl;
+        //cout << zscores1(causal_idx-1) << endl;
+        //cout << "TEST" << endl;
+            //+c_prob;
+        
+        test[0] = gamma2[2];
+        Compute_SNP_Priors(annotations, test, per_snp_prior); //pre-compute priors for each SNP
+        c_prob = Prior_CausalSet_Probabilty(per_snp_prior, test, causConfig);
+        //cout << "C _prob " << c_prob << endl;
+        ////cout << "Sum " << exp(sum) << endl;
+        ////cout << "Causal INDEX " << causal_index << endl; 
+        //cout << exp(c_prob) << endl;
+        //cout << "Prior odds * log bayse " << (sum) << endl;
+        //cout << "Prior odds * log bayse pop one " << (sumone) << endl;
+        //cout << "Prior odds * log bayse pop two" << (sumtwo) << endl;
+        ////cout << "Running summary" << endl;
+        //cout << exp(c_prob)*exp(log_bayse_factor_pop_two) << endl;
+        runsum = LogSum(runsum, sumone);
+        runsum = LogSum(runsum, sumtwo);
+        runsumone = LogSum(runsumone, sumone); 
+        runsumtwo = LogSum(runsumtwo, sumtwo);
+      //   for(int j = 0; j < causal_index.size(); j++){
+      //    //   //cout << "Causal index bleg " << causal_index[j] -1 << endl;
+      //           if(causal_index[j] >0){
+      //           Marginal[causal_index[j]-1] = LogSum(Marginal[causal_index[j]-1], sum); 
+      //           Marginal1[causal_index[j]-1] = LogSum(Marginal1[causal_index[j]-1], sumone);
+      //           Marginal2[causal_index[j]-1] = LogSum(Marginal2[causal_index[j]-1], sumtwo);
+      //           }
+      //       }
+       // //cout << "Causal probability " << c_prob << endl;
+     //   cout << sum << endl;
+        counter ++;
+    }
+    double four_probs; 
+    double tmp_c_prob2;
+    double llk = -1e-150;
+    for(int i = 0; i < causal_sets.cols(); i++){
+        cout << "I " << i << endl;
+        for(int j =0; j < causal_sets.cols(); j++){
+            double tmp_c_prob = 0.0;
+            for(int k = 0; k < causal_sets.rows(); k++){
+                if(causal_sets(k,j) == 1 && causal_sets(k,i) ==1){
+                   tmp_c_prob += log(gamma2[0]);
+                }else if(causal_sets(k, j) == 1 && causal_sets(k, i) == 0){
+                   tmp_c_prob += log(gamma2[1]);
+                }else if(causal_sets(k, j) == 0 && causal_sets(k, i) == 1){
+                    tmp_c_prob += log(gamma2[2]);
+                }else{
+                    tmp_c_prob += log(1-gamma2[0] - gamma2[1] - gamma2[2]);
+                }
+
+            }
+            four_probs =  tmp_c_prob + sumone_vec[i] + sumtwo_vec[j]; 
+            for(int k = 0; k < causal_sets.rows(); k++){
+                 if(causal_sets(k,j) == 1 && causal_sets(k,i) ==1){ 
+                        Marginal[k] = LogSum(Marginal[k], four_probs); 
+                  }else if(causal_sets(k,j) == 1 && causal_sets(k,i) == 0){
+                        Marginal1[k] = LogSum(Marginal1[k], four_probs);
+                  }else if(causal_sets(k,j) == 0 && causal_sets(k,i) == 1){
+                        Marginal2[k] = LogSum(Marginal2[k], four_probs);
+                   }
+            }
+            //cout << "C1= " << i << " " << " C2= " << j << " " <<(tmp_c_prob2) << " " << marginals(j,i) << " " << marginals(i,j) << endl;
+            //cout << "C3 " << (four_probs) << endl; 
+            llk = LogSum(llk, four_probs);
+        }
+    }
+    for(int f = 0 ; f < Marginal.size(); f++){
+        Marginal[f] = Marginal[f] - llk; 
+        Marginal1[f] = Marginal1[f] - llk; 
+        Marginal2[f] = Marginal2[f] - llk;
+        Marginal3[f] = log(1-exp(Marginal[f]) - exp(Marginal1[f]) - exp(Marginal2[f])); 
+    }
+    fullLikeli = fullLikeli+llk;
+       cout << "Full likeli " << fullLikeli << endl; 
+}
 
 void Enumerate_Posterior(VectorXd& Marginal, vector<VectorXd>& zscores, VectorXd& beta, MatrixXd& annotations,  vector<MatrixXd>& ld_matrix, int NC, double& fullLikeli, double prior_variance){
     int numsnps = zscores[0].size();
@@ -489,13 +772,23 @@ void Enumerate_Posterior(VectorXd& Marginal, vector<VectorXd>& zscores, VectorXd
     double log_bayes_factor_pop;
     //runsum = sum;
     int counter = 1;
+    //cout << "Enumaret again" << endl;
     while(NextCombo(causal_index, NC, numsnps+1) == 1){
+        //cout << "Causal index " << causal_index << endl;
         vector<int> causal_index_as_vector;
         BuildCausalVector(causConfig, causal_index,causal_index_as_vector);
+        for (int i = 0 ; i < causal_index_as_vector.size(); i++){
+            //cout << "test" << endl;
+            //cout << causal_index_as_vector[i] << " ";
+        }
+        //cout << endl;
         c_prob = Prior_CausalSet_Probabilty(per_snp_prior, beta, causConfig);
         log_bayes_factor = 0;
+
+        // Let's try and do som region calculations. 
         for (int i = 0;  i<num_pops ; i++) {
             log_bayes_factor_pop=Calculate_LogBayesFactor(zscores[i], ld_matrix[i], causal_index_as_vector, prior_variance);
+            //cout << "Colocalisation " << log_bayes_factor << endl;
             if(std::isnan(log_bayes_factor_pop)){
                 log_bayes_factor_pop = -1e150;
             }
@@ -503,20 +796,83 @@ void Enumerate_Posterior(VectorXd& Marginal, vector<VectorXd>& zscores, VectorXd
         }
 
         sum = c_prob+log_bayes_factor;
+        //cout << "Sum " << exp(sum) << endl;
+        //cout << "Prior odds * log bayse " << exp(c_prob)*exp(log_bayes_factor) << endl;
         runsum = LogSum(runsum, sum);
-
         for(int j = 0; j < causal_index.size(); j++){
+            //cout << "Causal index bleg " << causal_index[j] -1 << endl;
             if(causal_index[j] >0){
                 Marginal[causal_index[j]-1] = LogSum(Marginal[causal_index[j]-1], sum);
             }
         }
+        //cout << "Causal probability " << c_prob << endl;
+        //cout << sum << endl;
         counter ++;
     }
     for(int f = 0 ; f < Marginal.size(); f++){
         Marginal[f] = Marginal[f]- runsum;
     }
-
+    
     fullLikeli = fullLikeli+runsum;
+}
+
+
+double Estep2(vector<vector<VectorXd>> &Zscores, VectorXd &betas, vector<MatrixXd> &Aijs, vector<vector<MatrixXd>>& ld_matrices, CausalProbs &E_out, double prior_variance,int  max_causals, VectorXd &gamma_intitial2){
+    //cout << "E-STEP" << endl;
+    vector<VectorXd> marginal_i;
+    vector<VectorXd> marginal_j;
+    vector<VectorXd> marginal_k;
+    vector<vector <double>> test_data = E_out.prob_vectors;
+    cout << test_data[0].size() << endl;
+    VectorXd exp_temp;
+    vector<double> stacker;
+    vector<double> stack_temp;
+    double fullLikeli = 0;
+    for(unsigned int i = 0; i < Zscores.size(); i ++){
+        VectorXd locus_log_marginals(Zscores[i][0].size());
+        VectorXd locus_log_marginals1(Zscores[i][0].size());
+        VectorXd locus_log_marginals2(Zscores[i][0].size());
+        VectorXd locus_log_marginals3(Zscores[i][0].size());
+        Enumerate_Posterior2(locus_log_marginals,Zscores[i], betas, Aijs[i], ld_matrices[i], max_causals, fullLikeli, prior_variance, locus_log_marginals1, locus_log_marginals2, locus_log_marginals3, gamma_intitial2);
+        exp_temp = locus_log_marginals.array().exp();
+        marginal_i.push_back(exp_temp);
+        stack_temp =  eigen2vec(exp_temp);
+        for(int j = 0; j < exp_temp.size(); j++){
+            test_data[0].push_back(stack_temp[j]);
+        }
+        stacker.insert(stacker.end(), stack_temp.begin(), stack_temp.end());
+        // Add new marginal likelihoods
+        exp_temp = locus_log_marginals1.array().exp();
+        marginal_j.push_back(exp_temp);
+        stack_temp =  eigen2vec(exp_temp);
+        for(int j = 0; j < exp_temp.size(); j++){
+            test_data[1].push_back(stack_temp[j]);
+        }
+        stacker.insert(stacker.end(), stack_temp.begin(), stack_temp.end());
+        
+        exp_temp = locus_log_marginals2.array().exp();
+        marginal_k.push_back(exp_temp);
+        stack_temp =  eigen2vec(exp_temp);
+        for(int j = 0; j < exp_temp.size(); j++){
+            test_data[2].push_back(stack_temp[j]);
+            cout << test_data[2][j] << endl;
+        }
+        stacker.insert(stacker.end(), stack_temp.begin(), stack_temp.end());
+        exp_temp = locus_log_marginals3.array().exp();
+        marginal_k.push_back(exp_temp);
+        stack_temp =  eigen2vec(exp_temp);
+        for(int j = 0; j < exp_temp.size(); j++){
+            test_data[3].push_back(stack_temp[j]);
+            cout << test_data[2][j] << endl;
+        }
+        stacker.insert(stacker.end(), stack_temp.begin(), stack_temp.end());
+    }
+    E_out.probs_locs = marginal_i;
+    E_out.probs_locs1 = marginal_j;
+    E_out.probs_locs2 = marginal_k;
+    E_out.probs_stacked = stacker;
+    E_out.prob_vectors = test_data;
+    return(fullLikeli);
 }
 
 //E step with full enumeration
@@ -528,7 +884,9 @@ double Estep(vector<vector<VectorXd>> &Zscores, VectorXd &betas, vector<MatrixXd
     double fullLikeli = 0;
     for(unsigned int i = 0; i < Zscores.size(); i ++){
         VectorXd locus_log_marginals(Zscores[i][0].size());
-        Enumerate_Posterior(locus_log_marginals,Zscores[i], betas, Aijs[i], ld_matrices[i], max_causals, fullLikeli, prior_variance);
+        //Enumerate_Posterior2(locus_log_marginals,Zscores[i], betas, Aijs[i], ld_matrices[i], max_causals, fullLikeli, prior_variance);
+        // uSe my new function ???
+        //Enumerate_Posterior(locus_log_marginals,Zscores[i], betas, Aijs[i], ld_matrices[i], max_causals, fullLikeli, prior_variance);
         exp_temp = locus_log_marginals.array().exp();
         marginal_i.push_back(exp_temp);
         stack_temp =  eigen2vec(exp_temp);
@@ -607,53 +965,53 @@ void Copy_CausalProbs(CausalProbs& source, CausalProbs& destination ){
 }
 
 /*
-double EM_Run(CausalProbs &probabilites, int iter_max, vector<vector<VectorXd>> &Zscores,  VectorXd &beta_int, vector<MatrixXd> &annotations,vector<vector<MatrixXd>> &ld_matrix , double prior_variance, int num_samples, int sampling_seed){
-    //Run EM with sampling
-    vector<double> beta_run = eigen2vec(beta_int);
-    ObjectiveData Opt_in;
-    Opt_in.Aijs = Stack_Matrices(annotations);
-    int iterations = 0;
-    VectorXd beta_update;
-    double likeliOld;
-    double likeli =1;
-    double gradient_tolerance = 1e-5;
-    int max_ascents = 100;
-    int succesful_opt;
-    CausalProbs curr_probs;
-    double EM_likelihood;
-    while(iterations < iter_max) {
-        likeli = Estep(Zscores, beta_int, annotations, ld_matrix, probabilites, prior_variance, num_samples, sampling_seed);
-        VectorXd stacked_probabilities = vector2eigen(probabilites.probs_stacked);
-        MatrixXd stacked_annotations(stacked_probabilities.size(), beta_int.size());
-        Stack_EigenMatrices(annotations, stacked_annotations);
-        if(likeliOld <= likeli || iterations==0){
-            Copy_CausalProbs(probabilites, curr_probs);
-            VectorXd new_gammas(beta_int.size());
-            VectorXd return_values(2);
-            Gradient_Ascent(beta_int,  new_gammas, stacked_probabilities, stacked_annotations, gradient_tolerance, max_ascents, return_values);
-            likeliOld = likeli;
-            succesful_opt = return_values[0];
-            EM_likelihood = return_values[1];
-            if(succesful_opt == 0){
-                beta_int = new_gammas;
-             //   cout << std::setprecision(9) << "Sum of log Bayes Factors at iteration: " << iterations+1 << ": " << likeli << endl;
-               // cout << "Parameter Estimates:" << endl << new_gammas << endl << endl;
-                //cout << "EM Likelihood :" << EM_likelihood << endl;
-            }
-            else{
-                cout << "Warning: Optimization unstable at iteration: " << iterations+1 << endl;
-                cout << "Maximum liklelihood estimate for enrichments potentially not reached" << endl;
-                cout << "Program is exiting and returning values corresponding to estimates from iteration: " << iterations << endl;
-                break;
-            }
-        }
-        else{
-            cout << "Last Iteration did not improve model fit. Resampling at prevoius estimates. " << endl;
-        }
-        iterations++;
-    }
-    Copy_CausalProbs(curr_probs,probabilites);
-    return(EM_likelihood);
+   double EM_Run(CausalProbs &probabilites, int iter_max, vector<vector<VectorXd>> &Zscores,  VectorXd &beta_int, vector<MatrixXd> &annotations,vector<vector<MatrixXd>> &ld_matrix , double prior_variance, int num_samples, int sampling_seed){
+//Run EM with sampling
+vector<double> beta_run = eigen2vec(beta_int);
+ObjectiveData Opt_in;
+Opt_in.Aijs = Stack_Matrices(annotations);
+int iterations = 0;
+VectorXd beta_update;
+double likeliOld;
+double likeli =1;
+double gradient_tolerance = 1e-5;
+int max_ascents = 100;
+int succesful_opt;
+CausalProbs curr_probs;
+double EM_likelihood;
+while(iterations < iter_max) {
+likeli = Estep(Zscores, beta_int, annotations, ld_matrix, probabilites, prior_variance, num_samples, sampling_seed);
+VectorXd stacked_probabilities = vector2eigen(probabilites.probs_stacked);
+MatrixXd stacked_annotations(stacked_probabilities.size(), beta_int.size());
+Stack_EigenMatrices(annotations, stacked_annotations);
+if(likeliOld <= likeli || iterations==0){
+Copy_CausalProbs(probabilites, curr_probs);
+VectorXd new_gammas(beta_int.size());
+VectorXd return_values(2);
+Gradient_Ascent(beta_int,  new_gammas, stacked_probabilities, stacked_annotations, gradient_tolerance, max_ascents, return_values);
+likeliOld = likeli;
+succesful_opt = return_values[0];
+EM_likelihood = return_values[1];
+if(succesful_opt == 0){
+beta_int = new_gammas;
+//   //cout << std::setprecision(9) << "Sum of log Bayes Factors at iteration: " << iterations+1 << ": " << likeli << endl;
+// //cout << "Parameter Estimates:" << endl << new_gammas << endl << endl;
+E=////cout << "EM Likelihood :" << EM_likelihood << endl;
+}
+else{
+//cout << "Warning: Optimization unstable at iteration: " << iterations+1 << endl;
+//cout << "Maximum liklelihood estimate for enrichments potentially not reached" << endl;
+//cout << "Program is exiting and returning values corresponding to estimates from iteration: " << iterations << endl;
+break;
+}
+}
+else{
+//cout << "Last Iteration did not improve model fit. Resampling at prevoius estimates. " << endl;
+}
+iterations++;
+}
+Copy_CausalProbs(curr_probs,probabilites);
+return(EM_likelihood);
 }
 */
 
@@ -671,6 +1029,15 @@ double EM_Run(CausalProbs &probabilites, int iter_max, vector<vector<VectorXd>> 
     int succesful_opt;
     CausalProbs curr_probs;
     double EM_likelihood;
+    //cout << "EM run" << endl;
+    for(int i=0; i < beta_int.size(); i++){
+        cout << beta_int[i] << endl;
+    }
+    beta_int(4);
+    for(int i=0; i < beta_int.size(); i++){
+        beta_int[i] = 0.25; 
+        cout << beta_int[i] << endl;
+    }
     while(iterations < iter_max) {
         likeli = Estep(Zscores, beta_int, Aijs, ld_matrix, probabilites, prior_variance, max_causals);
         VectorXd stacked_probabilities = vector2eigen(probabilites.probs_stacked);
@@ -720,22 +1087,80 @@ double PreCompute_Enrichment(int iter_max, vector<vector<VectorXd>> &Zscores,  V
     int max_ascents = 1000;
     int succesful_opt;
     CausalProbs curr_probs;
+    vector<vector <double>> test_data(3);
+    vector <double> rowone;
+    test_data.push_back(rowone);
+    vector <double> rowtwo;
+    test_data.push_back(rowtwo);
+    vector <double> rowthree;
+    test_data.push_back(rowthree);
+    probabilites.prob_vectors = test_data;
+    
     double EM_likelihood;
+    for(int i=0; i < gamma_intitial.size(); i++){
+        cout << "Initial gamma " << gamma_intitial[i] ;
+    }
+    VectorXd gamma_intitial2(3);
+    for(int i=0; i < gamma_intitial2.size(); i++){
+            gamma_intitial2[i] = 1/(1+exp(gamma_intitial[0]));
+            cout << gamma_intitial2[i]<< endl;
+    }
+
     while(iterations < iter_max) {
-        likeli = Estep(Zscores, gamma_intitial, annotations, ld_matrix, probabilites, prior_variance, max_causals);
+        //cout << "Iterations = " << iterations << endl;
+        cout << gamma_intitial.size() << endl;
+        cout << gamma_intitial2.size() << endl;
+        cout << gamma_intitial2 << endl; 
+        //for(int i=0; i < gamma_intitial2.size(); i++){
+        //        gamma_intitial2[i] = gamma_intitial[0];
+        //}
+        likeli = Estep2(Zscores, gamma_intitial, annotations, ld_matrix, probabilites, prior_variance, max_causals, gamma_intitial2);
+        cout << "Are we getting this far????" << endl;
+        cout << "likli hood " << likeli <<endl;
         VectorXd stacked_probabilities = vector2eigen(probabilites.probs_stacked);
-        MatrixXd stacked_annotations(stacked_probabilities.size(), gamma_intitial.size());
+        //cout << "lel" << endl;
+        MatrixXd stacked_annotations(stacked_probabilities.size()/4,1); 
+        MatrixXd stacked_probabilities2(stacked_probabilities.size()/4, 4);
+        int counter = 0;
+        for(int i=0; i < stacked_probabilities2.cols(); i++){
+            for (int j=0; j < stacked_probabilities2.rows(); j++){
+                stacked_probabilities2(j,i) = probabilites.prob_vectors[i][j]; 
+            }
+        }
+        ofstream myfile;
+        myfile.open("probs.txt");
+        for(int i=0; i < stacked_probabilities2.rows(); i++){
+            //cout << "SNP NO " << i << " " << endl; 
+            for (int j=0; j < stacked_probabilities2.cols(); j++){
+                myfile << stacked_probabilities2(i,j) << " ";
+                counter +=1;
+            }
+            myfile << endl;
+        }
+        myfile.close();
+      //  exit(1);
+      //  cout << "END OUTPUT" << endl;
+        //cout << "Does this work ??" << endl;
+        //cout << "Testing 1 2 " << endl;
+        //cout << annotations.size()  << " " << stacked_annotations.cols() <<" "  << stacked_annotations.rows() << endl; 
         Stack_EigenMatrices(annotations, stacked_annotations);
+        //cout << "Likelihood = " << likeli <<endl;
         if(abs(likeliOld - likeli)> 0.01){
             Copy_CausalProbs(probabilites, curr_probs);
             VectorXd new_gammas(gamma_intitial.size());
             VectorXd return_values(2);
-            Gradient_Ascent(gamma_intitial,  new_gammas, stacked_probabilities, stacked_annotations, gradient_tolerance, max_ascents, return_values);
+            Gradient_Ascent(gamma_intitial,  new_gammas, stacked_probabilities, stacked_probabilities2, gradient_tolerance, max_ascents, return_values, gamma_intitial2,Zscores);
+            //cout << "Do we complete gradient ascent "<< endl;
             likeliOld = likeli;
             succesful_opt = return_values[0];
+            for(int i=0; i < gamma_intitial2.size(); i++){
+                cout << gamma_intitial2[i] << endl;
+            }
+            //cout << "WHAT IN THE ACTUALY FUCK" << endl;
             EM_likelihood = return_values[1];
-            if(succesful_opt == 0){
-                gamma_intitial = new_gammas;
+            if(0==0){
+                cout << "Are we actually fucking converging WHAT ????? " << endl;
+                cout << new_gammas << endl;
             }
             else{
                 cout << "Warning: Optimization unstable at iteration: " << iterations+1 << endl;
@@ -745,10 +1170,15 @@ double PreCompute_Enrichment(int iter_max, vector<vector<VectorXd>> &Zscores,  V
             }
         }
         else {
+            cout << gamma_intitial2<< endl;
+            cout << "Ran twice " << endl; 
+            cout << ":)  " << endl;
+            exit(1);
             break;
         }
         iterations++;
     }
+    cout << "Lilki ___ ummm " << likeli;
     Copy_CausalProbs(curr_probs,probabilites);
     return(likeli);
 }

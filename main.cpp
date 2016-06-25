@@ -37,6 +37,7 @@ void Welcome_Message(){
     cout << "-enumerate\t specify this flag if you want to enumerate all possible configurations followed by the max number of causal SNPs (eg. -enumerate 3 considers up to 3 causals at each locus) [Default: not specified]" << endl;
     cout << "-set_seed\t specify an integer as a seed for random number generator [default: clock time at execution]" << endl;
     cout << "-max_causal\t specify the number of causals to pre-compute enrichments with [default: 2]" << endl;
+    cout << "-only-enrichment\t only calculate the enrichments" << endl; 
     cout << endl << endl ;
 }
 
@@ -77,6 +78,7 @@ int main(int argc, const char * argv[])
     double prior_variance = 25;
     int enumerate_flag = 0;
     int initialized_gammas=0;
+    int only_enrichment = 0;
     if(argc < 2){
         Welcome_Message();
         return 0;
@@ -194,6 +196,9 @@ int main(int argc, const char * argv[])
         else if(argComp.compare("-max_causal")==0){
             max_causal = stoi(argv[i+1]);
         }
+        else if(argComp.compare("-only-enrichment")==0){
+            only_enrichment =  1;
+        }
     }
 
     /* initialize PAINTOR model parameters */
@@ -257,8 +262,16 @@ int main(int argc, const char * argv[])
             cout << "Number of draws for importance sampling: " << num_samples << endl;
             cout << "Pre-computing functional enrichments considering up to " << max_causal << " causals per locus" << endl;
             if(initialized_gammas == 0) {
+                cout << "Initial Gamma" << endl;
+                cout << gamma_estimates << endl;
                 Final_loglikeli = PreCompute_Enrichment(maxIter, all_transformed_statistics, gamma_estimates,
                                                         all_annotations, all_sigmas, prior_variance, max_causal);
+            }
+            if (only_enrichment == 1){
+                cout << "Only computing enrichments" << endl;
+                Write_Gamma_Estimates(gamma_estimates, gammaName, Final_loglikeli, likeli_name, annot_names, out_dir);
+                return EXIT_SUCCESS;
+                 
             }
             cout << "Finished computing enrichments :" << endl;
             cout << gamma_estimates << endl;

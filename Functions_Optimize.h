@@ -31,9 +31,12 @@ double dot_prod(vector<double>& vec1, vector<double>& vec2);
 vector<double> scalar_product(const double& scalar, vector<double>& vec);
 vector<double> Vector_Sum(vector<double>& vec1, vector<double>& vec2);
 
-double Compute_Objective(VectorXd& current_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations);
-void Compute_Gradient(VectorXd& current_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations, VectorXd& gradient);
+double Compute_Objective(VectorXd& current_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations, VectorXd & claudia_gammas);
+void Compute_Gradient(VectorXd& current_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations, VectorXd& gradient, VectorXd & claudia_gammas);
 void Compute_Hessian(VectorXd& current_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations, MatrixXd& hessian);
 int Gradient_Ascent(VectorXd& current_gammas, VectorXd& new_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations, double gradient_tolerance, int max_iterations);
+
+
+void Gradient_Ascent(VectorXd& current_gammas, VectorXd& new_gammas, VectorXd& stacked_probabilites, MatrixXd& stacked_annotations, double gradient_tolerance, int max_iterations, VectorXd& return_values, VectorXd &gamma_initial2,vector<vector<VectorXd>> &Zscores);
 
 #endif //PAINTOR_3_0_FUNCTIONS_OPTIMIZE_H

@@ -283,6 +283,34 @@ void Write_Posterior(string& out_dir, string & out_name, VectorXd& locus_results
 
 }
 
+void Write_Gamma_Estimates(VectorXd & gamma_estimates, string &Gname, double log_likeli, string & Lname, vector<string>& annot_names, string& out_dir){
+    ofstream gamma_out;
+    string G_open = out_dir+Gname;
+    gamma_out.open(G_open);
+
+    gamma_out << "Baseline";
+    for(unsigned int i =0; i < annot_names.size(); i++){
+        gamma_out << " ";
+        gamma_out << annot_names[i];
+    }
+    gamma_out << endl;
+
+    gamma_out << gamma_estimates[0];
+    for(unsigned int i=1; i < gamma_estimates.size(); i ++){
+        gamma_out << " ";
+        gamma_out << gamma_estimates[i];
+    }
+    gamma_out << endl;
+    gamma_out.close();
+    
+    string L_open = out_dir+Lname;
+    ofstream likeli_out;
+    likeli_out.open(L_open);
+    likeli_out<< std::setprecision(10) << log_likeli;
+    likeli_out << "\n";
+    likeli_out.close();
+}
+
 void Write_All_Output(string& input_files, string& out_dir, string& out_suffix, CausalProbs& results, vector<vector<string>> & all_locus_info,
                       VectorXd & gamma_estimates, string& Gname, double log_likeli, string & Lname, vector<string>& all_headers, vector<string>& annot_names){
     ifstream input_list;

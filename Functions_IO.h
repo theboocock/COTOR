@@ -27,7 +27,10 @@ struct ObjectiveData{
 };
 struct CausalProbs{
     vector<VectorXd> probs_locs;
+    vector<VectorXd> probs_locs1;
+    vector<VectorXd> probs_locs2;
     vector<double> probs_stacked;
+    vector< vector <double>> prob_vectors; 
 };
 
 
@@ -45,6 +48,7 @@ void Read_Annotations(string &input_directory, string& fname , vector<string>& m
 void Write_Posterior(string& out_dir, string & out_name, VectorXd& locus_results, vector<string>& locus_info, string& header );
 void Write_All_Output(string& input_files, string& out_dir, string& out_suffix, CausalProbs& results, vector<vector<string>> & all_locus_info,
                       VectorXd & gamma_estimates, string& Gname, double log_likeli, string & Lname, vector<string>& all_headers, vector<string>& annot_names);
+void Write_Gamma_Estimates(VectorXd & gamma_estimates, string &Gname, double log_likeli, string &Lname, vector<string> & annot_names, string& out_dir);
 void Reshape_Input(vector<vector<VectorXd>>& all_locus_statistics, vector<vector<MatrixXd>> &all_ld_matrices,vector<VectorXd>& reshape_stats, vector<MatrixXd> &reshape_ld );
 double Get_Gamma_Zero(vector<vector<VectorXd>>& all_locus_statistics);
 bool check_file_exists (const std::string& name);
